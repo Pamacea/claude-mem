@@ -46,7 +46,9 @@ export class SessionSearch {
    * - Tables maintained but search paths removed
    * - Triggers still fire to keep tables synchronized
    *
-   * TODO: Remove FTS5 infrastructure in future major version (v7.0.0)
+   * NOTE: FTS5 infrastructure kept for backwards compatibility
+   * - Vector search (sqlite-vec) is the primary search method (v10.0.0+)
+   * - FTS5 tables maintained but not actively used for search
    */
   private ensureFTSTables(): void {
     // Check if FTS tables already exist

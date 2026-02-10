@@ -361,20 +361,25 @@ export function spawnDaemon(
   };
 
   if (isWindows) {
-    // Use WMIC to spawn a process that's independent of the parent console
-    // This avoids the console popup that occurs with detached: true
-    // Paths must be individually quoted for WMIC when they contain spaces
+    // Use CMD's start /b to spawn a detached process
+    // This works on all Windows versions (WMIC is deprecated in Windows 11)
     const execPath = process.execPath;
     const script = scriptPath;
-    // WMIC command format: wmic process call create "\"path1\" \"path2\" args"
-    const command = `wmic process call create "\\"${execPath}\\" \\"${script}\\" --daemon"`;
+
+    // Set environment variable for port
+    const envCmd = `set CLAUDE_MEM_WORKER_PORT=${port}&&`;
+
+    // start /b starts process in current window but returns immediately
+    // Using cmd /c to execute the command
+    const command = `${envCmd} start /b "" "${execPath}" "${script}" --daemon`;
 
     try {
       execSync(command, {
         stdio: 'ignore',
-        windowsHide: true
+        windowsHide: true,
+        shell: true
       });
-      // WMIC returns immediately, we can't get the spawned PID easily
+      // Process starts asynchronously, we can't get the PID easily
       // Worker will write its own PID file after listen()
       return 0;
     } catch {

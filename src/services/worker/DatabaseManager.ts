@@ -5,19 +5,20 @@
  * - Manage single database connection for worker lifetime
  * - Provide centralized access to SessionStore and SessionSearch
  * - High-level database operations
- * - ChromaSync integration
+ *
+ * REFACTOR (Phase 2): Removed ChromaSync integration
+ * - ChromaDB replaced with sqlite-vec (vector tables in SQLite)
+ * - No more external ChromaSync dependency
  */
 
 import { SessionStore } from '../sqlite/SessionStore.js';
 import { SessionSearch } from '../sqlite/SessionSearch.js';
-import { ChromaSync } from '../sync/ChromaSync.js';
 import { logger } from '../../utils/logger.js';
 import type { DBSession } from '../worker-types.js';
 
 export class DatabaseManager {
   private sessionStore: SessionStore | null = null;
   private sessionSearch: SessionSearch | null = null;
-  private chromaSync: ChromaSync | null = null;
 
   /**
    * Initialize database connection (once, stays open)
@@ -27,9 +28,6 @@ export class DatabaseManager {
     this.sessionStore = new SessionStore();
     this.sessionSearch = new SessionSearch();
 
-    // Initialize ChromaSync (lazy - connects on first search, not at startup)
-    this.chromaSync = new ChromaSync('claude-mem');
-
     logger.info('DB', 'Database initialized');
   }
 
@@ -37,12 +35,6 @@ export class DatabaseManager {
    * Close database connection and cleanup all resources
    */
   async close(): Promise<void> {
-    // Close ChromaSync first (terminates uvx/python processes)
-    if (this.chromaSync) {
-      await this.chromaSync.close();
-      this.chromaSync = null;
-    }
-
     if (this.sessionStore) {
       this.sessionStore.close();
       this.sessionStore = null;
@@ -72,16 +64,6 @@ export class DatabaseManager {
       throw new Error('Database not initialized');
     }
     return this.sessionSearch;
-  }
-
-  /**
-   * Get ChromaSync instance (throws if not initialized)
-   */
-  getChromaSync(): ChromaSync {
-    if (!this.chromaSync) {
-      throw new Error('ChromaSync not initialized');
-    }
-    return this.chromaSync;
   }
 
   // REMOVED: cleanupOrphanedSessions - violates "EVERYTHING SHOULD SAVE ALWAYS"

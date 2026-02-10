@@ -340,10 +340,26 @@ export class WorkerService {
       // Initialize search services
       const formattingService = new FormattingService();
       const timelineService = new TimelineService();
+
+      // Initialize EmbeddingService (if OpenAI API key is available)
+      let embeddingService = null;
+      const openaiKey = process.env.EMBEDDING_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        const { EmbeddingService } = await import('./EmbeddingService.js');
+        embeddingService = new EmbeddingService(
+          this.dbManager.getSessionStore().db,
+          openaiKey
+        );
+        logger.info('WORKER', 'EmbeddingService initialized with OpenAI');
+      } else {
+        logger.warn('WORKER', 'OpenAI API key not found, vector search will be disabled');
+      }
+
       const searchManager = new SearchManager(
         this.dbManager.getSessionSearch(),
         this.dbManager.getSessionStore(),
-        this.dbManager.getChromaSync(),
+        this.dbManager.getSessionStore().db,  // Pass Database for VectorSearchStrategy
+        embeddingService,
         formattingService,
         timelineService
       );

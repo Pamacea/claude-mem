@@ -211,7 +211,13 @@ export function findBunPath(): string {
     ...(process.platform === 'win32' ? [
       path.join(homedir(), '.bun', 'bin', 'bun.exe'),
       path.join(process.env.LOCALAPPDATA || '', 'bun', 'bun.exe'),
-    ] : []),
+      // npm global install (Windows)
+      path.join(process.env.APPDATA || '', 'npm', 'bun.cmd'),
+      path.join(process.env.APPDATA || '', 'npm', 'bun'),
+    ] : [
+      // npm global install (Unix/macOS)
+      path.join(homedir(), '.npm', 'global', 'bin', 'bun'),
+    ]),
   ];
 
   for (const p of possiblePaths) {

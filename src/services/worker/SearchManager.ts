@@ -6,17 +6,22 @@
  *
  * The actual search logic is now in:
  * - SearchOrchestrator: Strategy selection and coordination
- * - ChromaSearchStrategy: Vector-based semantic search
+ * - VectorSearchStrategy: Vector-based semantic search (sqlite-vec)
  * - SQLiteSearchStrategy: Filter-only queries
- * - HybridSearchStrategy: Metadata filtering + semantic ranking
  * - ResultFormatter: Output formatting
  * - TimelineBuilder: Timeline construction
+ *
+ * REFACTOR (Phase 2): Replaced ChromaDB with sqlite-vec
+ * - ChromaSync → Database (bun:sqlite)
+ * - ChromaSearchStrategy → VectorSearchStrategy
+ * - HybridSearchStrategy → Removed
  */
 
 import { basename } from 'path';
 import { SessionSearch } from '../sqlite/SessionSearch.js';
 import { SessionStore } from '../sqlite/SessionStore.js';
-import { ChromaSync } from '../sync/ChromaSync.js';
+import { Database } from 'bun:sqlite';
+import { EmbeddingService } from './EmbeddingService.js';
 import { FormattingService } from './FormattingService.js';
 import { TimelineService } from './TimelineService.js';
 import type { TimelineItem } from './TimelineService.js';
@@ -39,7 +44,8 @@ export class SearchManager {
   constructor(
     private sessionSearch: SessionSearch,
     private sessionStore: SessionStore,
-    private chromaSync: ChromaSync,
+    private db: Database | null,
+    private embeddingService: EmbeddingService | null,
     private formatter: FormattingService,
     private timelineService: TimelineService
   ) {
@@ -47,21 +53,10 @@ export class SearchManager {
     this.orchestrator = new SearchOrchestrator(
       sessionSearch,
       sessionStore,
-      chromaSync
+      db,
+      embeddingService
     );
     this.timelineBuilder = new TimelineBuilder();
-  }
-
-  /**
-   * Query Chroma vector database via ChromaSync
-   * @deprecated Use orchestrator.search() instead
-   */
-  private async queryChroma(
-    query: string,
-    limit: number,
-    whereFilter?: Record<string, any>
-  ): Promise<{ ids: number[]; distances: number[]; metadatas: any[] }> {
-    return await this.chromaSync.queryChroma(query, limit, whereFilter);
   }
 
   /**

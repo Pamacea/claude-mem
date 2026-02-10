@@ -172,7 +172,11 @@ function normalizeSummaryForStorage(summary: ParsedSummary | null): {
 }
 
 /**
- * Sync observations to Chroma and broadcast to SSE clients
+ * Sync observations to vector DB and broadcast to SSE clients
+ *
+ * REFACTOR (Phase 2): Removed ChromaDB sync
+ * - Embeddings will be created on-demand by VectorSearchStrategy
+ * - TODO: Implement background embedding service for better search performance
  */
 async function syncAndBroadcastObservations(
   observations: ParsedObservation[],
@@ -187,32 +191,9 @@ async function syncAndBroadcastObservations(
   for (let i = 0; i < observations.length; i++) {
     const obsId = result.observationIds[i];
     const obs = observations[i];
-    const chromaStart = Date.now();
 
-    // Sync to Chroma (fire-and-forget)
-    dbManager.getChromaSync().syncObservation(
-      obsId,
-      session.contentSessionId,
-      session.project,
-      obs,
-      session.lastPromptNumber,
-      result.createdAtEpoch,
-      discoveryTokens
-    ).then(() => {
-      const chromaDuration = Date.now() - chromaStart;
-      logger.debug('CHROMA', 'Observation synced', {
-        obsId,
-        duration: `${chromaDuration}ms`,
-        type: obs.type,
-        title: obs.title || '(untitled)'
-      });
-    }).catch((error) => {
-      logger.error('CHROMA', `${agentName} chroma sync failed, continuing without vector search`, {
-        obsId,
-        type: obs.type,
-        title: obs.title || '(untitled)'
-      }, error);
-    });
+    // NOTE: Chroma sync removed - embeddings created on-demand by VectorSearchStrategy
+    // TODO: Implement background embedding service for immediate vector search
 
     // Broadcast to SSE clients (for web UI)
     // BUGFIX: Use obs.files_read and obs.files_modified (not obs.files)
@@ -280,30 +261,8 @@ async function syncAndBroadcastSummary(
     return;
   }
 
-  const chromaStart = Date.now();
-
-  // Sync to Chroma (fire-and-forget)
-  dbManager.getChromaSync().syncSummary(
-    result.summaryId,
-    session.contentSessionId,
-    session.project,
-    summaryForStore,
-    session.lastPromptNumber,
-    result.createdAtEpoch,
-    discoveryTokens
-  ).then(() => {
-    const chromaDuration = Date.now() - chromaStart;
-    logger.debug('CHROMA', 'Summary synced', {
-      summaryId: result.summaryId,
-      duration: `${chromaDuration}ms`,
-      request: summaryForStore.request || '(no request)'
-    });
-  }).catch((error) => {
-    logger.error('CHROMA', `${agentName} chroma sync failed, continuing without vector search`, {
-      summaryId: result.summaryId,
-      request: summaryForStore.request || '(no request)'
-    }, error);
-  });
+  // NOTE: Chroma sync removed - embeddings created on-demand by VectorSearchStrategy
+  // TODO: Implement background embedding service for immediate vector search
 
   // Broadcast to SSE clients (for web UI)
   broadcastSummary(worker, {
