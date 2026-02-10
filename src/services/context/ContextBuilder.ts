@@ -38,7 +38,7 @@ const VERSION_MARKER_PATH = path.join(
   '.claude',
   'plugins',
   'marketplaces',
-  'thedotmack',
+  'claude-mem',
   'plugin',
   '.install-version'
 );
