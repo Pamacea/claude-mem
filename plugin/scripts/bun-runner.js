@@ -22,7 +22,7 @@ const IS_WINDOWS = process.platform === 'win32';
  * Find Bun executable - checks PATH first, then common install locations
  */
 function findBun() {
-  // Try PATH first
+  // Try PATH first and verify the executable actually exists
   const pathCheck = spawnSync(IS_WINDOWS ? 'where' : 'which', ['bun'], {
     encoding: 'utf-8',
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -30,7 +30,12 @@ function findBun() {
   });
 
   if (pathCheck.status === 0 && pathCheck.stdout.trim()) {
-    return 'bun'; // Found in PATH
+    const bunPath = pathCheck.stdout.trim().split('\n')[0]; // Take first match
+    // Verify the executable actually exists (handles broken npm installations)
+    if (existsSync(bunPath)) {
+      return bunPath; // Return absolute path from where/which
+    }
+    // If PATH entry is broken, fall through to manual search
   }
 
   // Check common installation paths (handles fresh installs before PATH reload)

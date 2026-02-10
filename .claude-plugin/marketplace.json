@@ -10,9 +10,9 @@
   "plugins": [
     {
       "name": "claude-mem",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./plugin",
-      "description": "Persistent memory system for Claude Code - v1.0.0 Remastered. Same features. Half the code. Zero bloat."
+      "description": "Persistent memory system for Claude Code - v1.0.1 Remastered. Custom embedding providers (z.ai, etc)."
     }
   ]
 }

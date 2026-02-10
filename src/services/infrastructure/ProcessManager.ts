@@ -361,30 +361,29 @@ export function spawnDaemon(
   };
 
   if (isWindows) {
-    // Use CMD's start /b to spawn a detached process
-    // This works on all Windows versions (WMIC is deprecated in Windows 11)
-    const execPath = process.execPath;
-    const script = scriptPath;
+    // Use spawn with cmd.exe to avoid shell:true deprecation warning
+    // All inputs are controlled internally (port, execPath, scriptPath) - safe from injection
+    const child = spawn('cmd.exe', [
+      '/c',
+      `set CLAUDE_MEM_WORKER_PORT=${port}&&`,
+      'start',
+      '/b',
+      '""',
+      `"${process.execPath}"`,
+      `"${scriptPath}"`,
+      '--daemon'
+    ], {
+      stdio: 'ignore',
+      windowsHide: true,
+      env,
+      detached: true,
+      shell: false
+    });
 
-    // Set environment variable for port
-    const envCmd = `set CLAUDE_MEM_WORKER_PORT=${port}&&`;
-
-    // start /b starts process in current window but returns immediately
-    // Using cmd /c to execute the command
-    const command = `${envCmd} start /b "" "${execPath}" "${script}" --daemon`;
-
-    try {
-      execSync(command, {
-        stdio: 'ignore',
-        windowsHide: true,
-        shell: true
-      });
-      // Process starts asynchronously, we can't get the PID easily
-      // Worker will write its own PID file after listen()
-      return 0;
-    } catch {
-      return undefined;
-    }
+    child.unref();
+    // Process starts asynchronously, we can't get the PID easily
+    // Worker will write its own PID file after listen()
+    return 0;
   }
 
   // Unix: standard detached spawn

@@ -1,17 +1,17 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/thedotmack/claude-mem">
+  <a href="https://github.com/Pamacea/claude-mem">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/thedotmack/claude-mem/main/docs/public/claude-mem-logo-for-dark-mode.webp">
-      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/thedotmack/claude-mem/main/docs/public/claude-mem-logo-for-light-mode.webp">
-      <img src="https://raw.githubusercontent.com/thedotmack/claude-mem/main/docs/public/claude-mem-logo-for-light-mode.webp" alt="Claude-Mem" width="400">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Pamacea/claude-mem/main/docs/public/claude-mem-logo-for-dark-mode.webp">
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/Pamacea/claude-mem/main/docs/public/claude-mem-logo-for-light-mode.webp">
+      <img src="https://raw.githubusercontent.com/Pamacea/claude-mem/main/docs/public/claude-mem-logo-for-light-mode.webp" alt="Claude-Mem" width="400">
     </picture>
   </a>
   <br>
 </h1>
 
 <h4 align="center">
-  <a href="https://github.com/thedotmack/claude-mem/releases/latest">
+  <a href="https://github.com/Pamacea/claude-mem/releases/latest">
     <img src="https://img.shields.io/badge/version-v1.0.0--Remastered-blueviolet" alt="Version: v1.0.0 Remastered">
   </a>
   <a href="LICENSE">
@@ -104,7 +104,7 @@ After 9 iterations of adding features, we took a step back and asked: *What if w
 
 ```bash
 # Add the plugin
-/plugin marketplace add thedotmack/claude-mem
+/plugin marketplace add Pamacea/claude-mem
 
 # Install it
 /plugin install claude-mem
@@ -361,7 +361,7 @@ See [Development Guide](https://docs.claude-mem.ai/development) for contribution
 
 This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0).
 
-Copyright (C) 2025 Alex Newman (@thedotmack). All rights reserved.
+Copyright (C) 2025 Yanis (@Pamacea). Forked from original work by Alex Newman (@thedotmack). All rights reserved.
 
 **What This Means:**
 - You can use, modify, and distribute this software freely
@@ -376,9 +376,10 @@ Copyright (C) 2025 Alex Newman (@thedotmack). All rights reserved.
 ## 🌟 Support
 
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/thedotmack/claude-mem/issues)
-- **Repository**: [github.com/thedotmack/claude-mem](https://github.com/thedotmack/claude-mem)
-- **Author**: Alex Newman ([@thedotmack](https://github.com/thedotmack))
+- **Issues**: [GitHub Issues](https://github.com/Pamacea/claude-mem/issues)
+- **Repository**: [github.com/Pamacea/claude-mem](https://github.com/Pamacea/claude-mem)
+- **Maintainer**: Yanis ([@Pamacea](https://github.com/Pamacea))
+- **Original Author**: Alex Newman ([@thedotmack](https://github.com/thedotmack))
 
 ---
 
