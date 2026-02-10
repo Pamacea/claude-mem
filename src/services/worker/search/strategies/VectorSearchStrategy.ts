@@ -152,7 +152,18 @@ export class VectorSearchStrategy extends BaseSearchStrategy implements SearchSt
    * Uses EmbeddingService with caching
    */
   private async getQueryEmbedding(query: string): Promise<Float32Array> {
-    const result = await this.embeddingService.getEmbedding(query, 'openai');
+    // Determine which provider to use
+    // Priority: custom > openai > sdkagent
+    let provider: 'openai' | 'custom' = 'openai';
+
+    const customEndpoint = process.env.EMBEDDING_CUSTOM_ENDPOINT;
+    const customKey = process.env.EMBEDDING_CUSTOM_API_KEY;
+
+    if (customEndpoint && customKey) {
+      provider = 'custom';
+    }
+
+    const result = await this.embeddingService.getEmbedding(query, provider);
     return result.embedding;
   }
 

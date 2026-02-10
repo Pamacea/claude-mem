@@ -341,10 +341,28 @@ export class WorkerService {
       const formattingService = new FormattingService();
       const timelineService = new TimelineService();
 
-      // Initialize EmbeddingService (if OpenAI API key is available)
+      // Initialize EmbeddingService (if OpenAI or custom API key is available)
       let embeddingService = null;
       const openaiKey = process.env.EMBEDDING_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-      if (openaiKey) {
+
+      // Check for custom embedding provider configuration
+      const customEndpoint = process.env.EMBEDDING_CUSTOM_ENDPOINT;
+      const customKey = process.env.EMBEDDING_CUSTOM_API_KEY;
+      const customModel = process.env.EMBEDDING_CUSTOM_MODEL;
+
+      if (customEndpoint && customKey) {
+        // Custom provider (z.ai, etc.) takes priority
+        const { EmbeddingService } = await import('./EmbeddingService.js');
+        embeddingService = new EmbeddingService(
+          this.dbManager.getSessionStore().db,
+          undefined,  // No OpenAI key needed
+          { endpoint: customEndpoint, apiKey: customKey, model: customModel }
+        );
+        logger.info('WORKER', 'EmbeddingService initialized with custom provider', {
+          endpoint: customEndpoint,
+          model: customModel || 'default'
+        });
+      } else if (openaiKey) {
         const { EmbeddingService } = await import('./EmbeddingService.js');
         embeddingService = new EmbeddingService(
           this.dbManager.getSessionStore().db,
@@ -352,7 +370,7 @@ export class WorkerService {
         );
         logger.info('WORKER', 'EmbeddingService initialized with OpenAI');
       } else {
-        logger.warn('WORKER', 'OpenAI API key not found, vector search will be disabled');
+        logger.warn('WORKER', 'No embedding API key found, vector search will be disabled');
       }
 
       const searchManager = new SearchManager(

@@ -16,7 +16,7 @@ import { logger } from '../../utils/logger.js';
 /**
  * Supported embedding providers
  */
-export type EmbeddingProvider = 'openai' | 'sdkagent' | 'cached';
+export type EmbeddingProvider = 'openai' | 'sdkagent' | 'custom' | 'cached';
 
 /**
  * Embedding result with metadata
@@ -44,7 +44,12 @@ export class EmbeddingService {
 
   constructor(
     private db: Database,
-    private openaiApiKey?: string
+    private openaiApiKey?: string,
+    private customConfig?: {
+      endpoint?: string;
+      apiKey?: string;
+      model?: string;
+    }
   ) {
     this.initializeCacheTable();
   }
@@ -136,6 +141,9 @@ export class EmbeddingService {
       case 'sdkagent':
         return await this.generateWithSDKAgent(text);
 
+      case 'custom':
+        return await this.generateWithCustom(text);
+
       default:
         throw new Error(`Unknown embedding provider: ${provider}`);
     }
@@ -193,6 +201,65 @@ export class EmbeddingService {
     // For now, fall back to OpenAI
     logger.warn('EMBEDDING', 'SDKAgent provider not implemented, falling back to OpenAI');
     return await this.generateWithOpenAI(text);
+  }
+
+  /**
+   * Generate embedding using custom provider (z.ai, etc.)
+   * Supports any OpenAI-compatible API
+   */
+  private async generateWithCustom(text: string): Promise<Float32Array> {
+    if (!this.customConfig?.endpoint) {
+      throw new Error('Custom embedding provider not configured. Set EMBEDDING_CUSTOM_ENDPOINT environment variable.');
+    }
+
+    if (!this.customConfig?.apiKey) {
+      throw new Error('Custom embedding API key not configured. Set EMBEDDING_CUSTOM_API_KEY environment variable.');
+    }
+
+    const model = this.customConfig.model || 'text-embedding-ada-002';
+
+    logger.debug('EMBEDDING', 'Calling custom embedding API', {
+      endpoint: this.customConfig.endpoint,
+      model,
+      textLength: text.length
+    });
+
+    try {
+      const response = await fetch(this.customConfig.endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.customConfig.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          input: text,
+          model: model
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Custom embedding API error: ${response.status} ${error}`);
+      }
+
+      const data = await response.json();
+
+      // Support both OpenAI format (data.data[0].embedding) and direct format (data.embedding)
+      let embeddingArray: number[];
+      if (data.data && data.data[0] && data.data[0].embedding) {
+        embeddingArray = data.data[0].embedding;
+      } else if (data.embedding) {
+        embeddingArray = data.embedding;
+      } else {
+        throw new Error('Invalid custom API response format. Expected {data: [{embedding: [...][]}]} or {embedding: [...]}');
+      }
+
+      return new Float32Array(embeddingArray);
+
+    } catch (error) {
+      logger.error('EMBEDDING', 'Custom embedding API call failed', {}, error as Error);
+      throw error;
+    }
   }
 
   /**

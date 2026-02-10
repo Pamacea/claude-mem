@@ -130,6 +130,21 @@ claude-mem auto-creates `~/.claude-mem/settings.json` on first run.
 export EMBEDDING_OPENAI_API_KEY=sk-...
 ```
 
+**With custom provider (z.ai, etc.)**:
+```bash
+# Windows PowerShell
+$env:EMBEDDING_CUSTOM_ENDPOINT="https://api.z.ai/v1/embeddings"
+$env:EMBEDDING_CUSTOM_API_KEY="your-api-key"
+$env:EMBEDDING_CUSTOM_MODEL="text-embedding-ada-002"
+
+# Linux / macOS
+export EMBEDDING_CUSTOM_ENDPOINT="https://api.z.ai/v1/embeddings"
+export EMBEDDING_CUSTOM_API_KEY="your-api-key"
+export EMBEDDING_CUSTOM_MODEL="text-embedding-ada-002"
+```
+
+📖 **See [CUSTOM_EMBEDDING.md](./CUSTOM_EMBEDDING.md) for detailed guide on using z.ai or other providers**
+
 **Without API key**: Falls back to SQLite full-text search (still works!)
 
 ---
