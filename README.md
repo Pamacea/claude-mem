@@ -10,7 +10,7 @@
 
 <h1 align="center">
   <br>
-  <a href="https://github.com/thedotmack/claude-mem">
+  <a href="https://github.com/Pamacea/claude-mem">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/thedotmack/claude-mem/main/docs/public/claude-mem-logo-for-dark-mode.webp">
       <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/thedotmack/claude-mem/main/docs/public/claude-mem-logo-for-light-mode.webp">
@@ -59,8 +59,8 @@
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-AGPL%203.0-blue.svg" alt="License">
   </a>
-  <a href="package.json">
-    <img src="https://img.shields.io/badge/version-6.5.0-green.svg" alt="Version">
+  <a href="https://github.com/Pamacea/claude-mem/releases/latest">
+    <img src="https://img.shields.io/github/v/release/Pamacea/claude-mem" alt="Version">
   </a>
   <a href="package.json">
     <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node">
