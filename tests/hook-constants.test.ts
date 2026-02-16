@@ -25,11 +25,11 @@ describe('hook-constants', () => {
 
   describe('HOOK_TIMEOUTS', () => {
     it('should define DEFAULT timeout', () => {
-      expect(HOOK_TIMEOUTS.DEFAULT).toBe(300000);
+      expect(HOOK_TIMEOUTS.DEFAULT).toBe(10000);
     });
 
     it('should define HEALTH_CHECK timeout', () => {
-      expect(HOOK_TIMEOUTS.HEALTH_CHECK).toBe(30000);
+      expect(HOOK_TIMEOUTS.HEALTH_CHECK).toBe(3000);
     });
 
     it('should define WORKER_STARTUP_WAIT', () => {

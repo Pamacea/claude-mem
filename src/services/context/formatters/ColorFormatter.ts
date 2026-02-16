@@ -13,6 +13,7 @@ import type {
 import { colors } from '../types.js';
 import { ModeManager } from '../../domain/ModeManager.js';
 import { formatObservationTokenDisplay } from '../TokenCalculator.js';
+import { formatNumber } from '../../../utils/format.js';
 
 /**
  * Format current date/time for header display
@@ -91,15 +92,15 @@ export function renderColorContextEconomics(
   const output: string[] = [];
 
   output.push(`${colors.bright}${colors.cyan}Context Economics${colors.reset}`);
-  output.push(`${colors.dim}  Loading: ${economics.totalObservations} observations (${economics.totalReadTokens.toLocaleString()} tokens to read)${colors.reset}`);
-  output.push(`${colors.dim}  Work investment: ${economics.totalDiscoveryTokens.toLocaleString()} tokens spent on research, building, and decisions${colors.reset}`);
+  output.push(`${colors.dim}  Loading: ${economics.totalObservations} observations (${formatNumber(economics.totalReadTokens)} tokens to read)${colors.reset}`);
+  output.push(`${colors.dim}  Work investment: ${formatNumber(economics.totalDiscoveryTokens)} tokens spent on research, building, and decisions${colors.reset}`);
 
   if (economics.totalDiscoveryTokens > 0 && (config.showSavingsAmount || config.showSavingsPercent)) {
     let savingsLine = '  Your savings: ';
     if (config.showSavingsAmount && config.showSavingsPercent) {
-      savingsLine += `${economics.savings.toLocaleString()} tokens (${economics.savingsPercent}% reduction from reuse)`;
+      savingsLine += `${formatNumber(economics.savings)} tokens (${economics.savingsPercent}% reduction from reuse)`;
     } else if (config.showSavingsAmount) {
-      savingsLine += `${economics.savings.toLocaleString()} tokens`;
+      savingsLine += `${formatNumber(economics.savings)} tokens`;
     } else {
       savingsLine += `${economics.savingsPercent}% reduction from reuse`;
     }
@@ -144,7 +145,7 @@ export function renderColorTableRow(
 
   const timePart = showTime ? `${colors.dim}${time}${colors.reset}` : ' '.repeat(time.length);
   const readPart = (config.showReadTokens && readTokens > 0) ? `${colors.dim}(~${readTokens}t)${colors.reset}` : '';
-  const discoveryPart = (config.showWorkTokens && discoveryTokens > 0) ? `${colors.dim}(${workEmoji} ${discoveryTokens.toLocaleString()}t)${colors.reset}` : '';
+  const discoveryPart = (config.showWorkTokens && discoveryTokens > 0) ? `${colors.dim}(${workEmoji} ${formatNumber(discoveryTokens)}t)${colors.reset}` : '';
 
   return `  ${colors.dim}#${obs.id}${colors.reset}  ${timePart}  ${icon}  ${title} ${readPart} ${discoveryPart}`;
 }
@@ -166,7 +167,7 @@ export function renderColorFullObservation(
 
   const timePart = showTime ? `${colors.dim}${time}${colors.reset}` : ' '.repeat(time.length);
   const readPart = (config.showReadTokens && readTokens > 0) ? `${colors.dim}(~${readTokens}t)${colors.reset}` : '';
-  const discoveryPart = (config.showWorkTokens && discoveryTokens > 0) ? `${colors.dim}(${workEmoji} ${discoveryTokens.toLocaleString()}t)${colors.reset}` : '';
+  const discoveryPart = (config.showWorkTokens && discoveryTokens > 0) ? `${colors.dim}(${workEmoji} ${formatNumber(discoveryTokens)}t)${colors.reset}` : '';
 
   output.push(`  ${colors.dim}#${obs.id}${colors.reset}  ${timePart}  ${icon}  ${colors.bright}${title}${colors.reset}`);
   if (detailField) {
@@ -226,7 +227,7 @@ export function renderColorFooter(totalDiscoveryTokens: number, totalReadTokens:
   const workTokensK = Math.round(totalDiscoveryTokens / 1000);
   return [
     '',
-    `${colors.dim}Access ${workTokensK}k tokens of past research & decisions for just ${totalReadTokens.toLocaleString()}t. Use MCP search tools to access memories by ID.${colors.reset}`
+    `${colors.dim}Access ${workTokensK}k tokens of past research & decisions for just ${formatNumber(totalReadTokens)}t. Use MCP search tools to access memories by ID.${colors.reset}`
   ];
 }
 

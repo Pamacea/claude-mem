@@ -13,6 +13,7 @@ import type {
 } from '../types.js';
 import { ModeManager } from '../../domain/ModeManager.js';
 import { formatObservationTokenDisplay } from '../TokenCalculator.js';
+import { formatNumber } from '../../../utils/format.js';
 
 /**
  * Format current date/time for header display
@@ -89,15 +90,15 @@ export function renderMarkdownContextEconomics(
   const output: string[] = [];
 
   output.push(`**Context Economics**:`);
-  output.push(`- Loading: ${economics.totalObservations} observations (${economics.totalReadTokens.toLocaleString()} tokens to read)`);
-  output.push(`- Work investment: ${economics.totalDiscoveryTokens.toLocaleString()} tokens spent on research, building, and decisions`);
+  output.push(`- Loading: ${economics.totalObservations} observations (${formatNumber(economics.totalReadTokens)} tokens to read)`);
+  output.push(`- Work investment: ${formatNumber(economics.totalDiscoveryTokens)} tokens spent on research, building, and decisions`);
 
   if (economics.totalDiscoveryTokens > 0 && (config.showSavingsAmount || config.showSavingsPercent)) {
     let savingsLine = '- Your savings: ';
     if (config.showSavingsAmount && config.showSavingsPercent) {
-      savingsLine += `${economics.savings.toLocaleString()} tokens (${economics.savingsPercent}% reduction from reuse)`;
+      savingsLine += `${formatNumber(economics.savings)} tokens (${economics.savingsPercent}% reduction from reuse)`;
     } else if (config.showSavingsAmount) {
-      savingsLine += `${economics.savings.toLocaleString()} tokens`;
+      savingsLine += `${formatNumber(economics.savings)} tokens`;
     } else {
       savingsLine += `${economics.savingsPercent}% reduction from reuse`;
     }
@@ -229,7 +230,7 @@ export function renderMarkdownFooter(totalDiscoveryTokens: number, totalReadToke
   const workTokensK = Math.round(totalDiscoveryTokens / 1000);
   return [
     '',
-    `Access ${workTokensK}k tokens of past research & decisions for just ${totalReadTokens.toLocaleString()}t. Use MCP search tools to access memories by ID.`
+    `Access ${workTokensK}k tokens of past research & decisions for just ${formatNumber(totalReadTokens)}t. Use MCP search tools to access memories by ID.`
   ];
 }
 

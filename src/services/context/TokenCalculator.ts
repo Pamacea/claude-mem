@@ -7,6 +7,7 @@
 import type { Observation, TokenEconomics, ContextConfig } from './types.js';
 import { CHARS_PER_TOKEN_ESTIMATE } from './types.js';
 import { ModeManager } from '../domain/ModeManager.js';
+import { formatNumber } from '../../utils/format.js';
 
 /**
  * Calculate token count for a single observation
@@ -64,7 +65,7 @@ export function formatObservationTokenDisplay(
   const readTokens = calculateObservationTokens(obs);
   const discoveryTokens = obs.discovery_tokens || 0;
   const workEmoji = getWorkEmoji(obs.type);
-  const discoveryDisplay = discoveryTokens > 0 ? `${workEmoji} ${discoveryTokens.toLocaleString()}` : '-';
+  const discoveryDisplay = discoveryTokens > 0 ? `${workEmoji} ${formatNumber(discoveryTokens)}` : '-';
 
   return { readTokens, discoveryTokens, discoveryDisplay, workEmoji };
 }
