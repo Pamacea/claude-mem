@@ -1,6 +1,6 @@
 export const HOOK_TIMEOUTS = {
-  DEFAULT: 300000,            // Standard HTTP timeout (5 min for slow systems)
-  HEALTH_CHECK: 30000,        // Worker health check (30s for slow systems)
+  DEFAULT: 10000,             // Standard HTTP timeout (10s - sufficient for 99% of operations)
+  HEALTH_CHECK: 3000,         // Worker health check (3s - fast health verification)
   WORKER_STARTUP_WAIT: 1000,
   WORKER_STARTUP_RETRIES: 300,
   PRE_RESTART_SETTLE_DELAY: 2000,  // Give files time to sync before restart

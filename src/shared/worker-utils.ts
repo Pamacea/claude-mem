@@ -4,6 +4,7 @@ import { logger } from "../utils/logger.js";
 import { HOOK_TIMEOUTS, getTimeout } from "./hook-constants.js";
 import { SettingsDefaultsManager } from "./SettingsDefaultsManager.js";
 import { MARKETPLACE_ROOT } from "./paths.js";
+import { fetchKeepAlive } from "./http-client.js";
 
 // Named constants for health checks
 const HEALTH_CHECK_TIMEOUT_MS = getTimeout(HOOK_TIMEOUTS.HEALTH_CHECK);
@@ -30,6 +31,8 @@ export function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs:
 // Cache to avoid repeated settings file reads
 let cachedPort: number | null = null;
 let cachedHost: string | null = null;
+let cacheTime: number = 0;
+const CACHE_TTL = 60000;  // 60 seconds TTL for settings cache
 
 /**
  * Get the worker port number from settings
@@ -37,13 +40,19 @@ let cachedHost: string | null = null;
  * Caches the port value to avoid repeated file reads
  */
 export function getWorkerPort(): number {
-  if (cachedPort !== null) {
+  const now = Date.now();
+
+  // Return cached value if still valid (within TTL)
+  if (cachedPort !== null && (now - cacheTime) < CACHE_TTL) {
     return cachedPort;
   }
 
+  // Cache expired or not set - reload from file
   const settingsPath = path.join(SettingsDefaultsManager.get('CLAUDE_MEM_DATA_DIR'), 'settings.json');
   const settings = SettingsDefaultsManager.loadFromFile(settingsPath);
   cachedPort = parseInt(settings.CLAUDE_MEM_WORKER_PORT, 10);
+  cacheTime = now;
+
   return cachedPort;
 }
 
@@ -82,8 +91,8 @@ export function clearPortCache(): void {
  */
 async function isWorkerHealthy(): Promise<boolean> {
   const port = getWorkerPort();
-  const response = await fetchWithTimeout(
-    `http://127.0.0.1:${port}/api/health`, {}, HEALTH_CHECK_TIMEOUT_MS
+  const response = await fetchKeepAlive(
+    `http://127.0.0.1:${port}/api/health`
   );
   return response.ok;
 }
@@ -102,8 +111,8 @@ function getPluginVersion(): string {
  */
 async function getWorkerVersion(): Promise<string> {
   const port = getWorkerPort();
-  const response = await fetchWithTimeout(
-    `http://127.0.0.1:${port}/api/version`, {}, HEALTH_CHECK_TIMEOUT_MS
+  const response = await fetchKeepAlive(
+    `http://127.0.0.1:${port}/api/version`
   );
   if (!response.ok) {
     throw new Error(`Failed to get worker version: ${response.status}`);

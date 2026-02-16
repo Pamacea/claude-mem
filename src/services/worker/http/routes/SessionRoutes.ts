@@ -465,7 +465,7 @@ export class SessionRoutes extends BaseRouteHandler {
    * POST /api/sessions/observations
    * Body: { contentSessionId, tool_name, tool_input, tool_response, cwd }
    */
-  private handleObservationsByClaudeId = this.wrapHandler((req: Request, res: Response): void => {
+  private handleObservationsByClaudeId = this.wrapHandler(async (req: Request, res: Response): Promise<void> => {
     const { contentSessionId, tool_name, tool_input, tool_response, cwd } = req.body;
 
     if (!contentSessionId) {
@@ -499,9 +499,13 @@ export class SessionRoutes extends BaseRouteHandler {
 
     const store = this.dbManager.getSessionStore();
 
-    // Get or create session
-    const sessionDbId = store.createSDKSession(contentSessionId, '', '');
-    const promptNumber = store.getPromptNumberFromUserPrompts(contentSessionId);
+    // Step 1: Parallelize independent DB queries (performance optimization)
+    // - Get or create session
+    // - Get prompt number
+    const [sessionDbId, promptNumber] = await Promise.all([
+      Promise.resolve(store.createSDKSession(contentSessionId, '', '')),
+      Promise.resolve(store.getPromptNumberFromUserPrompts(contentSessionId))
+    ]);
 
     // Privacy check: skip if user prompt was entirely private
     const userPrompt = PrivacyCheckValidator.checkUserPromptPrivacy(
@@ -557,7 +561,7 @@ export class SessionRoutes extends BaseRouteHandler {
    *
    * Checks privacy, queues summarize request for SDK agent
    */
-  private handleSummarizeByClaudeId = this.wrapHandler((req: Request, res: Response): void => {
+  private handleSummarizeByClaudeId = this.wrapHandler(async (req: Request, res: Response): Promise<void> => {
     const { contentSessionId, last_assistant_message } = req.body;
 
     if (!contentSessionId) {
@@ -566,9 +570,13 @@ export class SessionRoutes extends BaseRouteHandler {
 
     const store = this.dbManager.getSessionStore();
 
-    // Get or create session
-    const sessionDbId = store.createSDKSession(contentSessionId, '', '');
-    const promptNumber = store.getPromptNumberFromUserPrompts(contentSessionId);
+    // Step 1: Parallelize independent DB queries (performance optimization)
+    // - Get or create session
+    // - Get prompt number
+    const [sessionDbId, promptNumber] = await Promise.all([
+      Promise.resolve(store.createSDKSession(contentSessionId, '', '')),
+      Promise.resolve(store.getPromptNumberFromUserPrompts(contentSessionId))
+    ]);
 
     // Privacy check: skip if user prompt was entirely private
     const userPrompt = PrivacyCheckValidator.checkUserPromptPrivacy(
@@ -655,7 +663,7 @@ export class SessionRoutes extends BaseRouteHandler {
    *
    * Returns: { sessionDbId, promptNumber, skipped: boolean, reason?: string }
    */
-  private handleSessionInitByClaudeId = this.wrapHandler((req: Request, res: Response): void => {
+  private handleSessionInitByClaudeId = this.wrapHandler(async (req: Request, res: Response): Promise<void> => {
     const { contentSessionId, project, prompt } = req.body;
 
     logger.info('HTTP', 'SessionRoutes: handleSessionInitByClaudeId called', {
@@ -674,16 +682,20 @@ export class SessionRoutes extends BaseRouteHandler {
     // Step 1: Create/get SDK session (idempotent INSERT OR IGNORE)
     const sessionDbId = store.createSDKSession(contentSessionId, project, prompt);
 
-    // Verify session creation with DB lookup
-    const dbSession = store.getSessionById(sessionDbId);
+    // Step 2: Parallelize independent DB queries (performance optimization)
+    // - Verify session creation with DB lookup
+    // - Get next prompt number from user_prompts count
+    const [dbSession, currentCount] = await Promise.all([
+      Promise.resolve(store.getSessionById(sessionDbId)),
+      Promise.resolve(store.getPromptNumberFromUserPrompts(contentSessionId))
+    ]);
+
     const isNewSession = !dbSession?.memory_session_id;
+    const promptNumber = currentCount + 1;
+
     logger.info('SESSION', `CREATED | contentSessionId=${contentSessionId} → sessionDbId=${sessionDbId} | isNew=${isNewSession} | project=${project}`, {
       sessionId: sessionDbId
     });
-
-    // Step 2: Get next prompt number from user_prompts count
-    const currentCount = store.getPromptNumberFromUserPrompts(contentSessionId);
-    const promptNumber = currentCount + 1;
 
     // Debug-level alignment logs for detailed tracing
     const memorySessionId = dbSession?.memory_session_id || null;

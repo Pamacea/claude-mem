@@ -14,6 +14,7 @@
  */
 import { getSessionId } from '../shared/hook-constants.js';
 import { getWorkerPort } from '../shared/worker-utils.js';
+import { fetchKeepAlive } from '../shared/http-client.js';
 
 export async function handlePostToolUse(): Promise<number> {
   try {
@@ -25,7 +26,7 @@ export async function handlePostToolUse(): Promise<number> {
 
     // Save observation for memory via Worker API
     const port = getWorkerPort();
-    const response = await fetch(`http://127.0.0.1:${port}/api/sessions/${sessionId}/observation`, {
+    const response = await fetchKeepAlive(`http://127.0.0.1:${port}/api/sessions/${sessionId}/observation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

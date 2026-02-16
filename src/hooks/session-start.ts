@@ -13,6 +13,7 @@
  * - 2: Blocking error (stderr shown to user)
  */
 import { getSessionId } from '../shared/hook-constants.js';
+import { fetchKeepAlive } from '../shared/http-client.js';
 
 export async function handleSessionStart(): Promise<number> {
   try {
@@ -20,7 +21,7 @@ export async function handleSessionStart(): Promise<number> {
 
     // Initialize session via Worker API and get context to inject
     const port = Number.parseInt(process.env.WORKER_PORT || '37777');
-    const response = await fetch(`http://127.0.0.1:${port}/api/sessions/init`, {
+    const response = await fetchKeepAlive(`http://127.0.0.1:${port}/api/sessions/init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
