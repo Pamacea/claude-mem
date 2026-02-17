@@ -59,6 +59,9 @@ function clearWorkerSpawnAttempted(): void {
 declare const __DEFAULT_PACKAGE_VERSION__: string;
 const packageVersion = typeof __DEFAULT_PACKAGE_VERSION__ !== 'undefined' ? __DEFAULT_PACKAGE_VERSION__ : '0.0.0-dev';
 
+// Shared imports
+import { getAvailableWorkerPort, getWorkerPort, getWorkerHost } from '../shared/worker-utils.js';
+
 // Infrastructure imports
 import {
   writePidFile,
@@ -66,11 +69,13 @@ import {
   removePidFile,
   getPlatformTimeout,
   cleanupOrphanedProcesses,
+  forceClosePortConnections,
   spawnDaemon,
   createSignalHandler
 } from './infrastructure/ProcessManager.js';
 import {
   isPortInUse,
+  isPortAvailableAtTcpLevel,
   waitForHealth,
   waitForPortFree,
   httpShutdown,
@@ -290,8 +295,18 @@ export class WorkerService {
     const port = getWorkerPort();
     const host = getWorkerHost();
 
-    // Start HTTP server FIRST - make port available immediately
-    await this.server.listen(port, host);
+    try {
+      // Start HTTP server FIRST - make port available immediately
+      await this.server.listen(port, host);
+    } catch (error) {
+      // Handle port binding errors explicitly
+      if (error instanceof Error && ('code' in error) &&
+          (error.code === 'EADDRINUSE' || error.code === 'EACCES')) {
+        logger.error('SYSTEM', `Failed to start server. Is port ${port} in use?`, { port, host, code: error.code });
+        throw new Error(`Failed to start server. Is port ${port} in use?`);
+      }
+      throw error;
+    }
 
     // Worker writes its own PID - reliable on all platforms
     // This happens after listen() succeeds, ensuring the worker is actually ready
@@ -742,23 +757,25 @@ export class WorkerService {
  * Ensures the worker is started and healthy.
  * This function can be called by both 'start' and 'hook' commands.
  *
- * @param port - The port the worker should run on
+ * @param requestedPort - The preferred port (will use fallback if occupied)
  * @returns true if worker is healthy (existing or newly started), false on failure
  */
-async function ensureWorkerStarted(port: number): Promise<boolean> {
-  // Check if worker is already running and healthy
-  if (await waitForHealth(port, 1000)) {
-    const versionCheck = await checkVersionMatch(port);
+async function ensureWorkerStarted(requestedPort: number): Promise<boolean> {
+  const host = getWorkerHost();
+
+  // First, check if a worker is already running and healthy on the requested port
+  if (await waitForHealth(requestedPort, 1000)) {
+    const versionCheck = await checkVersionMatch(requestedPort);
     if (!versionCheck.matches) {
       logger.info('SYSTEM', 'Worker version mismatch detected - auto-restarting', {
         pluginVersion: versionCheck.pluginVersion,
         workerVersion: versionCheck.workerVersion
       });
 
-      await httpShutdown(port);
-      const freed = await waitForPortFree(port, getPlatformTimeout(15000));
+      await httpShutdown(requestedPort);
+      const freed = await waitForPortFree(requestedPort, getPlatformTimeout(15000));
       if (!freed) {
-        logger.error('SYSTEM', 'Port did not free up after shutdown for version mismatch restart', { port });
+        logger.error('SYSTEM', 'Port did not free up after shutdown for version mismatch restart', { port: requestedPort });
         return false;
       }
       removePidFile();
@@ -768,17 +785,24 @@ async function ensureWorkerStarted(port: number): Promise<boolean> {
     }
   }
 
-  // Check if port is in use by something else
-  const portInUse = await isPortInUse(port);
-  if (portInUse) {
-    logger.info('SYSTEM', 'Port in use, waiting for worker to become healthy');
-    const healthy = await waitForHealth(port, getPlatformTimeout(15000));
-    if (healthy) {
-      logger.info('SYSTEM', 'Worker is now healthy');
-      return true;
-    }
-    logger.error('SYSTEM', 'Port in use but worker not responding to health checks');
-    return false;
+  // Find an available port (with automatic fallback if default port is occupied)
+  const actualPort = await getAvailableWorkerPort();
+
+  // If we're using a fallback port, warn the user
+  if (actualPort !== requestedPort) {
+    console.error(`\n⚠️  Default port ${requestedPort} is occupied. Using port ${actualPort} instead.`);
+    console.error(`   To use the default port, close the application using port ${requestedPort} and restart.\n`);
+  }
+
+  // Check if this port already has a healthy worker (might be a fallback from previous run)
+  if (actualPort !== requestedPort && await waitForHealth(actualPort, 1000)) {
+    logger.info('SYSTEM', 'Worker already running on fallback port', { port: actualPort });
+    return true;
+  }
+
+  // Try to cleanup zombie connections on Windows before spawning
+  if (process.platform === 'win32') {
+    await forceClosePortConnections(actualPort);
   }
 
   // Windows: skip spawn if a recent attempt already failed (prevents repeated bun.exe popups, issue #921)
@@ -788,26 +812,28 @@ async function ensureWorkerStarted(port: number): Promise<boolean> {
   }
 
   // Spawn new worker daemon
-  logger.info('SYSTEM', 'Starting worker daemon');
+  logger.info('SYSTEM', 'Starting worker daemon', { port: actualPort });
   markWorkerSpawnAttempted();
-  const pid = spawnDaemon(__filename, port);
+
+  // Pass the actual port to spawnDaemon via environment variable
+  const pid = spawnDaemon(__filename, actualPort);
   if (pid === undefined) {
+    clearWorkerSpawnAttempted(); // Clear lock on spawn failure to allow retry
     logger.error('SYSTEM', 'Failed to spawn worker daemon');
     return false;
   }
 
-  // PID file is written by the worker itself after listen() succeeds
-  // This is race-free and works correctly on Windows where cmd.exe PID is useless
-
-  const healthy = await waitForHealth(port, getPlatformTimeout(30000));
+  // Wait for worker to become healthy
+  const healthy = await waitForHealth(actualPort, getPlatformTimeout(30000));
   if (!healthy) {
     removePidFile();
-    logger.error('SYSTEM', 'Worker failed to start (health check timeout)');
+    clearWorkerSpawnAttempted(); // Clear lock on health check failure to allow retry
+    logger.error('SYSTEM', 'Worker failed to start (health check timeout)', { port: actualPort });
     return false;
   }
 
   clearWorkerSpawnAttempted();
-  logger.info('SYSTEM', 'Worker started successfully');
+  logger.success('SYSTEM', 'Worker started successfully', { port: actualPort });
   return true;
 }
 

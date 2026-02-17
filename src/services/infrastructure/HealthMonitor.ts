@@ -16,6 +16,7 @@ import { MARKETPLACE_ROOT } from '../../shared/paths.js';
 
 /**
  * Check if a port is in use by querying the health endpoint
+ * This checks if a healthy worker is running on the port
  */
 export async function isPortInUse(port: number): Promise<boolean> {
   try {
@@ -26,6 +27,46 @@ export async function isPortInUse(port: number): Promise<boolean> {
     // [ANTI-PATTERN IGNORED]: Health check polls every 500ms, logging would flood
     return false;
   }
+}
+
+/**
+ * Check if a port is available at TCP level (for binding)
+ * This is different from isPortInUse - it checks if we can actually bind to the port
+ * Returns true if port is available, false if it's occupied (even by a zombie process)
+ *
+ * This is crucial for Windows where TCP connections can stay in CLOSE_WAIT/FIN_WAIT_2
+ * after the process dies, preventing new processes from binding to the port.
+ */
+export async function isPortAvailableAtTcpLevel(port: number, host: string = '127.0.0.1'): Promise<boolean> {
+  // Dynamic import to avoid issues with non-Node environments
+  const net = await import('net');
+
+  return new Promise<boolean>((resolve) => {
+    const server = net.createServer();
+
+    server.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+        resolve(false); // Port is occupied
+      } else {
+        // Other errors - assume port is available but log the error
+        logger.debug('SYSTEM', 'Unexpected port check error', { port, code: err.code });
+        resolve(true);
+      }
+    });
+
+    server.once('listening', () => {
+      // Port is available - close immediately
+      server.close(() => resolve(true));
+    });
+
+    // Set a timeout - if we can't bind within 100ms, assume port is busy
+    setTimeout(() => {
+      server.close();
+      resolve(false);
+    }, 100).unref();
+
+    server.listen(port, host);
+  });
 }
 
 /**

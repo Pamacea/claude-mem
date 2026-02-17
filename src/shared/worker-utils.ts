@@ -35,11 +35,23 @@ let cacheTime: number = 0;
 const CACHE_TTL = 60000;  // 60 seconds TTL for settings cache
 
 /**
- * Get the worker port number from settings
- * Uses CLAUDE_MEM_WORKER_PORT from settings file or default (37777)
+ * Get the worker port number from environment variable or settings
+ * Priority:
+ * 1. CLAUDE_MEM_WORKER_PORT environment variable (used when spawning with fallback port)
+ * 2. CLAUDE_MEM_WORKER_PORT from settings file
+ * 3. Default port (37777)
+ *
  * Caches the port value to avoid repeated file reads
  */
 export function getWorkerPort(): number {
+  // First check environment variable (used for dynamic port assignment)
+  if (process.env.CLAUDE_MEM_WORKER_PORT) {
+    const envPort = parseInt(process.env.CLAUDE_MEM_WORKER_PORT, 10);
+    if (!isNaN(envPort)) {
+      return envPort;
+    }
+  }
+
   const now = Date.now();
 
   // Return cached value if still valid (within TTL)
@@ -79,6 +91,38 @@ export function getWorkerHost(): string {
 export function clearPortCache(): void {
   cachedPort = null;
   cachedHost = null;
+}
+
+/**
+ * Find an available port starting from the given base port
+ * Tries up to 10 consecutive ports before giving up
+ * Returns the first available port or the base port if all are occupied
+ */
+export async function findAvailablePort(basePort: number, host: string = '127.0.0.1', maxAttempts: number = 10): Promise<number> {
+  const { isPortAvailableAtTcpLevel } = await import('../services/infrastructure/HealthMonitor.js');
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const portToTry = basePort + i;
+    if (await isPortAvailableAtTcpLevel(portToTry, host)) {
+      if (i > 0) {
+        logger.warn('SYSTEM', `Port ${basePort} is occupied, using fallback port ${portToTry}`);
+      }
+      return portToTry;
+    }
+  }
+
+  // All ports occupied, return base port and let caller handle the error
+  return basePort;
+}
+
+/**
+ * Get a worker port with automatic fallback if the default port is occupied
+ * This is called during worker startup to find an available port
+ */
+export async function getAvailableWorkerPort(): Promise<number> {
+  const basePort = getWorkerPort();
+  const host = getWorkerHost();
+  return findAvailablePort(basePort, host);
 }
 
 /**

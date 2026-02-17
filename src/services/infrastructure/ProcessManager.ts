@@ -336,6 +336,81 @@ export async function cleanupOrphanedProcesses(): Promise<void> {
 }
 
 /**
+ * Force close TCP connections on a specific port (Windows only)
+ * This is useful for clearing zombie connections in CLOSE_WAIT/FIN_WAIT_2 states
+ * that prevent new processes from binding to the port.
+ *
+ * On Windows, TCP connections can persist after process death, blocking ports.
+ * This function uses multiple methods to clear them:
+ * 1. Kill the process owning the connection
+ * 2. On Windows, use Get-NetTCPConnection + Stop-Process
+ *
+ * @param port The port to clear connections for
+ * @returns true if connections were cleared, false otherwise
+ */
+export async function forceClosePortConnections(port: number): Promise<boolean> {
+  if (process.platform !== 'win32') {
+    // On Unix, connections are cleaned up quickly after process death
+    return false;
+  }
+
+  try {
+    // Find PIDs using the port via netstat
+    const netstatOutput = execSync(
+      `netstat -ano | findstr :${port}`,
+      { encoding: 'utf-8', windowsHide: true }
+    );
+
+    const pids = new Set<number>();
+    const lines = netstatOutput.split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+      // netstat output format: TCP    127.0.0.1:37777    0.0.0.0:0    LISTENING    12345
+      const parts = line.trim().split(/\s+/);
+      const pidStr = parts[parts.length - 1];
+      const pid = parseInt(pidStr, 10);
+      if (pid && pid > 0) {
+        pids.add(pid);
+      }
+    }
+
+    if (pids.size === 0) {
+      logger.debug('SYSTEM', 'No processes found using port', { port });
+      return false;
+    }
+
+    logger.info('SYSTEM', 'Found processes using port, attempting cleanup', { port, pids: Array.from(pids) });
+
+    let killedCount = 0;
+    for (const pid of pids) {
+      try {
+        // Try to kill the process
+        execSync(`taskkill /F /PID ${pid}`, {
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true
+        });
+        killedCount++;
+        logger.info('SYSTEM', 'Killed process using port', { pid, port });
+      } catch (err) {
+        // Process might already be dead (zombie connection)
+        // This is expected - the connection persists but the process is gone
+        logger.debug('SYSTEM', 'Process already dead (zombie connection)', { pid, port });
+      }
+    }
+
+    // Wait a moment for Windows to clean up the connections
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    logger.info('SYSTEM', 'Port cleanup completed', { port, killed: killedCount, total: pids.size });
+    return killedCount > 0 || pids.size > 0;
+  } catch (error) {
+    logger.debug('SYSTEM', 'Port cleanup failed', { port }, error as Error);
+    return false;
+  }
+}
+
+/**
  * Spawn a detached daemon process
  * Returns the child PID or undefined if spawn failed
  *
@@ -361,23 +436,32 @@ export function spawnDaemon(
   };
 
   if (isWindows) {
-    // Use WMIC to spawn a process that's independent of the parent console
-    // This avoids the console popup that occurs with detached: true
-    // Paths must be individually quoted for WMIC when they contain spaces
+    // On Windows, we need to pass the port via environment variable
+    // Use 'start /B' to spawn in background without creating new window
     const execPath = process.execPath;
     const script = scriptPath;
-    // WMIC command format: wmic process call create "\"path1\" \"path2\" args"
-    const command = `wmic process call create "\\"${execPath}\\" \\"${script}\\" --daemon"`;
+
+    // Build environment variable string
+    const envVars = [
+      `CLAUDE_MEM_WORKER_PORT=${port}`,
+      ...Object.entries(extraEnv).map(([k, v]) => `${k}=${v}`)
+    ];
+
+    // Use cmd /c to set environment and spawn the process in background
+    // 'start /B' spawns without creating a new window
+    const command = `cmd /c "set ${envVars.join('&set ')} && start /B "" "${execPath}" "${script}" --daemon"`;
 
     try {
       execSync(command, {
         stdio: 'ignore',
-        windowsHide: true
+        windowsHide: true,
+        shell: true
       });
-      // WMIC returns immediately, we can't get the spawned PID easily
+      // start /B returns immediately, we can't get the spawned PID easily
       // Worker will write its own PID file after listen()
       return 0;
-    } catch {
+    } catch (error) {
+      logger.debug('SYSTEM', 'Windows spawn failed', { port }, error as Error);
       return undefined;
     }
   }
